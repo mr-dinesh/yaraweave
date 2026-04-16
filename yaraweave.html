@@ -870,12 +870,38 @@
     <div class="modal-title">⚙ API Configuration</div>
 
     <div class="field-group">
-      <div class="field-label">Gemini API Key</div>
-      <input class="field-input" type="password" id="cfgGemini"
-        placeholder="AIza...">
-      <div class="field-note">
-        Used for YARA rule generation and explanation.<br>
-        Get a free key at <strong>aistudio.google.com</strong>
+      <div class="field-label">LLM Provider</div>
+      <select class="field-input" id="cfgProvider" onchange="onProviderChange()">
+        <option value="groq">Groq (recommended — free, fast, reliable)</option>
+        <option value="gemini">Gemini (Google AI Studio)</option>
+      </select>
+    </div>
+
+    <div class="divider"></div>
+
+    <div id="groqFields">
+      <div class="field-group">
+        <div class="field-label">Groq API Key</div>
+        <input class="field-input" type="password" id="cfgGroq" placeholder="gsk_...">
+        <div class="field-note">Free tier, no credit card. Get a key at <strong>console.groq.com</strong></div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Groq Model</div>
+        <input class="field-input" type="text" id="cfgGroqModel" value="llama-3.3-70b-versatile">
+        <div class="field-note">Recommended: llama-3.3-70b-versatile · Also: mixtral-8x7b-32768</div>
+      </div>
+    </div>
+
+    <div id="geminiFields" style="display:none">
+      <div class="field-group">
+        <div class="field-label">Gemini API Key</div>
+        <input class="field-input" type="password" id="cfgGemini" placeholder="AIza...">
+        <div class="field-note">Get a free key at <strong>aistudio.google.com</strong></div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Gemini Model</div>
+        <input class="field-input" type="text" id="cfgModel" value="gemini-2.5-flash">
+        <div class="field-note">Free options: gemini-2.5-flash, gemini-2.5-flash-lite</div>
       </div>
     </div>
 
@@ -883,23 +909,12 @@
 
     <div class="field-group">
       <div class="field-label">VirusTotal API Key <span style="color:var(--ink-dim)">(optional)</span></div>
-      <input class="field-input" type="password" id="cfgVT"
-        placeholder="VT free key — 4 lookups/min">
+      <input class="field-input" type="password" id="cfgVT" placeholder="VT free key — 4 lookups/min">
     </div>
 
     <div class="field-group">
       <div class="field-label">OTX AlienVault API Key <span style="color:var(--ink-dim)">(optional)</span></div>
-      <input class="field-input" type="password" id="cfgOTX"
-        placeholder="OTX API key from otx.alienvault.com">
-    </div>
-
-    <div class="field-group">
-      <div class="field-label">Gemini Model</div>
-      <input class="field-input" type="text" id="cfgModel"
-        placeholder="gemini-1.5-flash" value="gemini-1.5-flash">
-      <div class="field-note">
-        Free options: gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash-exp
-      </div>
+      <input class="field-input" type="password" id="cfgOTX" placeholder="OTX API key from otx.alienvault.com">
     </div>
 
     <div class="modal-footer">
@@ -914,10 +929,13 @@
 let mode = 'hash';
 let sources = new Set(['malwarebazaar','urlhaus','otx','virustotal']);
 let cfg = {
+  provider: 'groq',
+  groq: '',
+  groqModel: 'llama-3.3-70b-versatile',
   gemini: '',
+  model: 'gemini-2.5-flash',
   vt: '',
-  otx: '',
-  model: 'gemini-1.5-flash'
+  otx: ''
 };
 
 // Load saved config
@@ -968,7 +986,7 @@ function checkReady() {
   const q = document.getElementById('queryInput').value.trim();
   const hasQuery = q.length > 0;
   const hasSources = sources.size > 0;
-  const hasGemini = cfg.gemini.length > 0;
+  const hasGemini = cfg.provider === 'groq' ? cfg.groq.length > 0 : cfg.gemini.length > 0;
   document.getElementById('btnRun').disabled = !(hasQuery && hasSources && hasGemini);
   if (!hasGemini) {
     document.getElementById('btnRun').textContent = '⚙ Configure API Key First';
@@ -978,11 +996,21 @@ function checkReady() {
 }
 
 // ── CONFIG MODAL ──
+function onProviderChange() {
+  const p = document.getElementById('cfgProvider').value;
+  document.getElementById('groqFields').style.display   = p === 'groq'   ? 'block' : 'none';
+  document.getElementById('geminiFields').style.display = p === 'gemini' ? 'block' : 'none';
+}
+
 function openConfig() {
-  document.getElementById('cfgGemini').value = cfg.gemini;
-  document.getElementById('cfgVT').value     = cfg.vt;
-  document.getElementById('cfgOTX').value    = cfg.otx;
-  document.getElementById('cfgModel').value  = cfg.model || 'gemini-1.5-flash';
+  document.getElementById('cfgProvider').value  = cfg.provider || 'groq';
+  document.getElementById('cfgGroq').value       = cfg.groq || '';
+  document.getElementById('cfgGroqModel').value  = cfg.groqModel || 'llama-3.3-70b-versatile';
+  document.getElementById('cfgGemini').value     = cfg.gemini || '';
+  document.getElementById('cfgModel').value      = cfg.model || 'gemini-2.5-flash';
+  document.getElementById('cfgVT').value         = cfg.vt || '';
+  document.getElementById('cfgOTX').value        = cfg.otx || '';
+  onProviderChange();
   document.getElementById('configModal').classList.add('open');
 }
 
@@ -991,10 +1019,13 @@ function closeConfig() {
 }
 
 function saveConfig() {
-  cfg.gemini = document.getElementById('cfgGemini').value.trim();
-  cfg.vt     = document.getElementById('cfgVT').value.trim();
-  cfg.otx    = document.getElementById('cfgOTX').value.trim();
-  cfg.model  = document.getElementById('cfgModel').value.trim() || 'gemini-1.5-flash';
+  cfg.provider   = document.getElementById('cfgProvider').value;
+  cfg.groq       = document.getElementById('cfgGroq').value.trim();
+  cfg.groqModel  = document.getElementById('cfgGroqModel').value.trim() || 'llama-3.3-70b-versatile';
+  cfg.gemini     = document.getElementById('cfgGemini').value.trim();
+  cfg.model      = document.getElementById('cfgModel').value.trim() || 'gemini-2.5-flash';
+  cfg.vt         = document.getElementById('cfgVT').value.trim();
+  cfg.otx        = document.getElementById('cfgOTX').value.trim();
   try { localStorage.setItem('yw_cfg', JSON.stringify(cfg)); } catch(e) {}
   closeConfig();
   checkReady();
@@ -1169,7 +1200,38 @@ function summarizeIntel(results, query, isHash) {
   return summary;
 }
 
-// ── GEMINI API ──
+// ── LLM API (Groq + Gemini) ──
+async function callLLM(prompt) {
+  if (cfg.provider === 'groq') {
+    return callGroq(prompt);
+  } else {
+    return callGemini(prompt);
+  }
+}
+
+async function callGroq(prompt) {
+  const model = cfg.groqModel || 'llama-3.3-70b-versatile';
+  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${cfg.groq}`
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+      max_tokens: 2048
+    })
+  });
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(`Groq API error ${r.status}: ${err}`);
+  }
+  const d = await r.json();
+  return d.choices?.[0]?.message?.content || '';
+}
+
 async function callGemini(prompt) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent?key=${cfg.gemini}`;
   const r = await fetch(url, {
@@ -1252,7 +1314,7 @@ Write a production-quality YARA rule to detect this threat. The rule must:
 
 Respond ONLY with the raw YARA rule. No explanation, no markdown fences, just the rule text starting with "rule detect_".`;
 
-    const yaraRule = await callGemini(yaraPrompt);
+    const yaraRule = await callLLM(yaraPrompt);
     setStep('generate', 'done');
 
     // ── Step 4: Explain ──
@@ -1275,7 +1337,7 @@ Provide a structured explanation with these exact sections:
 Format each section as: SECTION_NAME: content
 Keep each section concise — 2-4 sentences max.`;
 
-    const explanation = await callGemini(explainPrompt);
+    const explanation = await callLLM(explainPrompt);
     setStep('explain', 'done');
 
     // ── Render ──
