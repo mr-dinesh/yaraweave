@@ -2,7 +2,7 @@
 
 > Threat Intel → YARA Rule Generator
 
-A single-file browser tool that queries open-source threat intelligence feeds and uses Google Gemini to generate production-quality YARA detection rules — with a condition-by-condition explanation for SOC analysts.
+A single-file browser tool that queries open-source threat intelligence feeds and uses an LLM to generate production-quality YARA detection rules — with a condition-by-condition explanation for SOC analysts.
 
 No server. No install. Open the HTML file and go.
 
@@ -12,8 +12,8 @@ No server. No install. Open the HTML file and go.
 
 1. **Input** — Enter a SHA256 hash or a malware family name (e.g. `Emotet`, `QakBot`)
 2. **Query** — Hits up to 5 threat intel sources in parallel
-3. **Generate** — Gemini synthesises a YARA rule from the aggregated intel
-4. **Explain** — A second Gemini pass produces deployment-ready analysis: threat context, rule logic rationale, string annotations, where to deploy, and confidence rating
+3. **Generate** — LLM synthesises a YARA rule from the aggregated intel
+4. **Explain** — A second LLM pass produces deployment-ready analysis: threat context, rule logic rationale, string annotations, where to deploy, and confidence rating
 
 ---
 
@@ -33,8 +33,12 @@ MalwareBazaar, URLhaus, and ThreatFox are completely free with no key required. 
 
 ## Getting Started
 
-### 1. Get a Gemini API key
+### 1. Get an API key
 
+**Groq (recommended — free, fast, reliable)**
+Go to [console.groq.com](https://console.groq.com), sign in, and create a free API key. No credit card required.
+
+**Gemini (alternative)**
 Go to [aistudio.google.com](https://aistudio.google.com), sign in, and create a free API key.
 
 ### 2. Open the tool
@@ -48,7 +52,7 @@ xdg-open yaraweave.html
 
 ### 3. Configure
 
-Click **⚙ Configure** in the top-right and paste your Gemini API key. Keys are stored in `localStorage` — never hardcoded, never sent anywhere except directly to the respective APIs.
+Click **⚙ Configure** in the top-right, select your provider, and paste your API key. Keys are stored in `localStorage` — never hardcoded, never sent anywhere except directly to the respective APIs.
 
 Optionally add VirusTotal and OTX keys for richer intel context.
 
@@ -83,6 +87,7 @@ Each analysis produces three panels:
 
 | Key | Where to get | Cost |
 |---|---|---|
+| Groq | [console.groq.com](https://console.groq.com) | Free, no credit card |
 | Gemini | [aistudio.google.com](https://aistudio.google.com) | Free |
 | VirusTotal | [virustotal.com](https://www.virustotal.com) | Free (4 req/min, 500/day) |
 | OTX AlienVault | [otx.alienvault.com](https://otx.alienvault.com) | Free, no limits |
@@ -91,11 +96,16 @@ All keys are stored in your browser's `localStorage` only. They are passed direc
 
 ---
 
-## Supported Gemini Models
+## LLM Providers
 
-Configure in **⚙ Configure → Gemini Model**:
+Select in **⚙ Configure → Provider**:
 
-- `gemini-1.5-flash` (default — fast, free)
+**Groq** (default)
+- Model: `llama-3.3-70b-versatile` (default)
+- Fast inference, free tier, no credit card required
+
+**Gemini**
+- `gemini-1.5-flash` (fast, free)
 - `gemini-1.5-pro` (more capable, free tier available)
 - `gemini-2.0-flash-exp` (latest, free tier)
 
