@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YaraWeave — Threat Intel to YARA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0c0e;
+    --bg-panel:  #0f1214;
+    --bg-card:   #141820;
+    --bg-input:  #0d1015;
+    --border:    #1e2530;
+    --border-hi: #2a3545;
+    --amber:     #f59e0b;
+    --amber-dim: #92610a;
+    --green:     #10b981;
+    --green-dim: #065f46;
+    --red:       #ef4444;
+    --red-dim:   #7f1d1d;
+    --blue:      #3b82f6;
+    --cyan:      #06b6d4;
+    --ink:       #e2e8f0;
+    --ink-mid:   #94a3b8;
+    --ink-dim:   #475569;
+    --ink-mute:  #2d3748;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'Space Grotesk', sans-serif;
+    --radius:    4px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-mark {
+    width: 28px;
+    height: 28px;
+    border: 1.5px solid var(--amber);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--amber);
+    font-weight: 700;
+    letter-spacing: -0.05em;
+  }
+
+  .logo-text {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .logo-sub {
+    font-size: 9px;
+    color: var(--ink-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 1px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--ink-dim);
+    letter-spacing: 0.08em;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .btn-config {
+    background: none;
+    border: 1px solid var(--border-hi);
+    color: var(--ink-mid);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: all 0.15s;
+  }
+
+  .btn-config:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 10px;
+  }
+
+  /* Input toggle */
+  .mode-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .mode-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    padding: 8px 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .mode-btn.active {
+    background: var(--amber);
+    color: var(--bg);
+    font-weight: 600;
+  }
+
+  .mode-btn:not(.active):hover {
+    color: var(--ink-mid);
+    background: var(--bg-card);
+  }
+
+  /* Input field */
+  .input-wrap {
+    position: relative;
+  }
+
+  .main-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+    transition: border-color 0.15s;
+    line-height: 1.6;
+  }
+
+  .main-input::placeholder { color: var(--ink-mute); }
+  .main-input:focus { border-color: var(--amber-dim); }
+
+  .input-hint {
+    font-size: 9px;
+    color: var(--ink-dim);
+    letter-spacing: 0.06em;
+    margin-top: 6px;
+  }
+
+  /* Source checkboxes */
+  .sources-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .source-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .source-item:hover { border-color: var(--border-hi); }
+  .source-item.checked { border-color: var(--amber-dim); background: rgba(245,158,11,0.04); }
+
+  .source-check {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--border-hi);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+
+  .source-item.checked .source-check {
+    background: var(--amber);
+    border-color: var(--amber);
+  }
+
+  .source-check::after {
+    content: '✓';
+    font-size: 9px;
+    color: var(--bg);
+    display: none;
+    font-weight: 700;
+  }
+
+  .source-item.checked .source-check::after { display: block; }
+
+  .source-info { flex: 1; }
+  .source-name { font-size: 11px; font-weight: 500; color: var(--ink); }
+  .source-desc { font-size: 9px; color: var(--ink-dim); margin-top: 1px; letter-spacing: 0.04em; }
+
+  .source-badge {
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background: var(--green-dim);
+    color: var(--green);
+  }
+
+  .source-badge.key-req {
+    background: rgba(59,130,246,0.15);
+    color: var(--blue);
+  }
+
+  /* Run button */
+  .btn-run {
+    width: 100%;
+    background: var(--amber);
+    border: none;
+    color: var(--bg);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 13px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-run:hover:not(:disabled) { background: #fbbf24; }
+  .btn-run:active:not(:disabled) { transform: scale(0.99); }
+  .btn-run:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Progress */
+  .progress-wrap {
+    display: none;
+  }
+
+  .progress-wrap.visible { display: block; }
+
+  .progress-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+    font-size: 10px;
+    color: var(--ink-dim);
+    letter-spacing: 0.06em;
+    transition: color 0.2s;
+  }
+
+  .progress-step.active { color: var(--amber); }
+  .progress-step.done { color: var(--green); }
+  .progress-step.error { color: var(--red); }
+
+  .step-icon {
+    width: 16px;
+    text-align: center;
+    font-size: 10px;
+  }
+
+  /* ── MAIN AREA ── */
+  .main {
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    opacity: 0.35;
+    padding: 80px 0;
+  }
+
+  .empty-glyph {
+    font-size: 48px;
+    line-height: 1;
+  }
+
+  .empty-title {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mid);
+  }
+
+  .empty-sub {
+    font-size: 10px;
+    color: var(--ink-dim);
+    letter-spacing: 0.06em;
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.7;
+  }
+
+  /* Results */
+  .results { display: flex; flex-direction: column; gap: 20px; }
+
+  /* Threat Context Card */
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+
+  .card-title {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  .card-accent {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .accent-amber { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  .accent-green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .accent-blue  { background: var(--blue);  box-shadow: 0 0 8px var(--blue);  }
+
+  .card-body { padding: 18px; }
+
+  /* Intel grid */
+  .intel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .intel-cell {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+  }
+
+  .intel-label {
+    font-size: 8px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 4px;
+  }
+
+  .intel-val {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink);
+    word-break: break-all;
+  }
+
+  .intel-val.tag-danger { color: var(--red); }
+  .intel-val.tag-warn   { color: var(--amber); }
+  .intel-val.tag-ok     { color: var(--green); }
+
+  .intel-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-hi);
+    color: var(--ink-mid);
+  }
+
+  .tag.danger { border-color: var(--red-dim); color: var(--red); background: rgba(239,68,68,0.08); }
+  .tag.warn   { border-color: var(--amber-dim); color: var(--amber); background: rgba(245,158,11,0.08); }
+
+  /* Source badges row */
+  .source-results {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .src-badge {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    padding: 3px 10px;
+    border-radius: 2px;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .src-badge.hit   { border-color: var(--green-dim); color: var(--green); background: rgba(16,185,129,0.08); }
+  .src-badge.miss  { border-color: var(--border); color: var(--ink-dim); }
+  .src-badge.error { border-color: var(--red-dim); color: var(--red); }
+
+  /* YARA output */
+  .yara-wrap {
+    position: relative;
+  }
+
+  .yara-code {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--ink);
+    white-space: pre;
+    overflow-x: auto;
+    tab-size: 4;
+  }
+
+  /* YARA syntax highlight */
+  .yara-code .kw  { color: var(--amber); font-weight: 600; }
+  .yara-code .str { color: var(--green); }
+  .yara-code .cmt { color: var(--ink-dim); font-style: italic; }
+  .yara-code .num { color: var(--cyan); }
+  .yara-code .var { color: var(--blue); }
+
+  .btn-copy {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-hi);
+    color: var(--ink-mid);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-copy:hover { border-color: var(--amber); color: var(--amber); }
+  .btn-copy.copied { color: var(--green); border-color: var(--green-dim); }
+
+  /* Explanation */
+  .explanation-body {
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--ink-mid);
+  }
+
+  .explanation-body strong { color: var(--amber); font-weight: 600; }
+
+  .expl-condition {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 14px;
+    margin-top: 12px;
+  }
+
+  .expl-tag {
+    font-size: 10px;
+    color: var(--amber);
+    font-weight: 600;
+    padding-top: 1px;
+    white-space: nowrap;
+  }
+
+  .expl-text {
+    font-size: 11px;
+    color: var(--ink-mid);
+    line-height: 1.7;
+    border-left: 2px solid var(--border);
+    padding-left: 10px;
+  }
+
+  /* ── CONFIG MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius);
+    width: 480px;
+    max-width: 90vw;
+    padding: 28px;
+  }
+
+  .modal-title {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 24px;
+    font-weight: 600;
+  }
+
+  .field-group { margin-bottom: 18px; }
+
+  .field-label {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 6px;
+  }
+
+  .field-note {
+    font-size: 9px;
+    color: var(--ink-dim);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+  }
+
+  .field-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 9px 12px;
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .field-input:focus { border-color: var(--amber-dim); }
+  .field-input::placeholder { color: var(--ink-mute); }
+
+  .modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 24px;
+  }
+
+  .btn-cancel {
+    background: none;
+    border: 1px solid var(--border-hi);
+    color: var(--ink-mid);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-cancel:hover { border-color: var(--red); color: var(--red); }
+
+  .btn-save {
+    background: var(--amber);
+    border: none;
+    color: var(--bg);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-save:hover { background: #fbbf24; }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 0;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+  /* Error banner */
+  .error-banner {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid var(--red-dim);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 11px;
+    color: var(--red);
+    line-height: 1.6;
+    display: none;
+  }
+
+  .error-banner.visible { display: block; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-mark">YW</div>
+    <div>
+      <div class="logo-text">YaraWeave</div>
+      <div class="logo-sub">Threat Intel → YARA Rule Generator</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      <span id="statusLabel">READY</span>
+    </div>
+    <button class="btn-config" onclick="openConfig()">⚙ Configure</button>
+  </div>
+</header>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- Input mode -->
+    <div>
+      <div class="section-label">Input Mode</div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="modeHash" onclick="setMode('hash')">SHA256 Hash</button>
+        <button class="mode-btn" id="modeFamily" onclick="setMode('family')">Malware Family</button>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div>
+      <div class="section-label">Query</div>
+      <div class="input-wrap">
+        <textarea class="main-input" id="queryInput"
+          placeholder="e.g. 44d88612fea8a8f36de82e1278abb02f"
+          rows="3"></textarea>
+      </div>
+      <div class="input-hint" id="inputHint">SHA256 hash of a known malicious sample</div>
+    </div>
+
+    <!-- Sources -->
+    <div>
+      <div class="section-label">Threat Intel Sources</div>
+      <div class="sources-grid">
+        <div class="source-item checked" id="src-malwarebazaar" onclick="toggleSource('malwarebazaar')">
+          <div class="source-check"></div>
+          <div class="source-info">
+            <div class="source-name">MalwareBazaar</div>
+            <div class="source-desc">abuse.ch — malware samples DB</div>
+          </div>
+          <div class="source-badge">Free</div>
+        </div>
+        <div class="source-item checked" id="src-urlhaus" onclick="toggleSource('urlhaus')">
+          <div class="source-check"></div>
+          <div class="source-info">
+            <div class="source-name">URLhaus</div>
+            <div class="source-desc">abuse.ch — malware URLs & payloads</div>
+          </div>
+          <div class="source-badge">Free</div>
+        </div>
+        <div class="source-item checked" id="src-otx" onclick="toggleSource('otx')">
+          <div class="source-check"></div>
+          <div class="source-info">
+            <div class="source-name">OTX AlienVault</div>
+            <div class="source-desc">Open Threat Exchange pulses</div>
+          </div>
+          <div class="source-badge key-req">Key req.</div>
+        </div>
+        <div class="source-item checked" id="src-virustotal" onclick="toggleSource('virustotal')">
+          <div class="source-check"></div>
+          <div class="source-info">
+            <div class="source-name">VirusTotal</div>
+            <div class="source-desc">Multi-engine AV + metadata</div>
+          </div>
+          <div class="source-badge key-req">Key req.</div>
+        </div>
+        <div class="source-item" id="src-threatfox" onclick="toggleSource('threatfox')">
+          <div class="source-check"></div>
+          <div class="source-info">
+            <div class="source-name">ThreatFox</div>
+            <div class="source-desc">abuse.ch — IOC database</div>
+          </div>
+          <div class="source-badge">Free</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="section-label">Pipeline</div>
+      <div class="progress-step" id="step-query">
+        <span class="step-icon">○</span>
+        <span>Querying threat intel sources</span>
+      </div>
+      <div class="progress-step" id="step-enrich">
+        <span class="step-icon">○</span>
+        <span>Enriching IOC context</span>
+      </div>
+      <div class="progress-step" id="step-generate">
+        <span class="step-icon">○</span>
+        <span>Generating YARA rule</span>
+      </div>
+      <div class="progress-step" id="step-explain">
+        <span class="step-icon">○</span>
+        <span>Building explanation</span>
+      </div>
+    </div>
+
+    <!-- Run -->
+    <button class="btn-run" id="btnRun" onclick="runAnalysis()" disabled>
+      ▶ Weave YARA Rule
+    </button>
+
+    <div class="error-banner" id="errorBanner"></div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main" id="mainArea">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-glyph">⬡</div>
+      <div class="empty-title">No analysis yet</div>
+      <div class="empty-sub">
+        Enter a SHA256 hash or malware family name.<br>
+        Select your intel sources and click Weave.
+      </div>
+    </div>
+    <div class="results" id="resultsArea" style="display:none"></div>
+  </main>
+
+</div>
+
+<!-- CONFIG MODAL -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <div class="modal-title">⚙ API Configuration</div>
+
+    <div class="field-group">
+      <div class="field-label">Gemini API Key</div>
+      <input class="field-input" type="password" id="cfgGemini"
+        placeholder="AIza...">
+      <div class="field-note">
+        Used for YARA rule generation and explanation.<br>
+        Get a free key at <strong>aistudio.google.com</strong>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field-group">
+      <div class="field-label">VirusTotal API Key <span style="color:var(--ink-dim)">(optional)</span></div>
+      <input class="field-input" type="password" id="cfgVT"
+        placeholder="VT free key — 4 lookups/min">
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">OTX AlienVault API Key <span style="color:var(--ink-dim)">(optional)</span></div>
+      <input class="field-input" type="password" id="cfgOTX"
+        placeholder="OTX API key from otx.alienvault.com">
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Gemini Model</div>
+      <input class="field-input" type="text" id="cfgModel"
+        placeholder="gemini-1.5-flash" value="gemini-1.5-flash">
+      <div class="field-note">
+        Free options: gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash-exp
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeConfig()">Cancel</button>
+      <button class="btn-save" onclick="saveConfig()">Save Keys</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let mode = 'hash';
+let sources = new Set(['malwarebazaar','urlhaus','otx','virustotal']);
+let cfg = {
+  gemini: '',
+  vt: '',
+  otx: '',
+  model: 'gemini-1.5-flash'
+};
+
+// Load saved config
+(function loadCfg() {
+  try {
+    const saved = localStorage.getItem('yw_cfg');
+    if (saved) {
+      const p = JSON.parse(saved);
+      cfg = { ...cfg, ...p };
+    }
+  } catch(e) {}
+})();
+
+// ── MODE ──
+function setMode(m) {
+  mode = m;
+  document.getElementById('modeHash').classList.toggle('active', m === 'hash');
+  document.getElementById('modeFamily').classList.toggle('active', m === 'family');
+  const input = document.getElementById('queryInput');
+  const hint  = document.getElementById('inputHint');
+  if (m === 'hash') {
+    input.placeholder = 'e.g. 44d88612fea8a8f36de82e1278abb02f';
+    hint.textContent  = 'SHA256 hash of a known malicious sample';
+  } else {
+    input.placeholder = 'e.g. Emotet, QakBot, AsyncRAT';
+    hint.textContent  = 'Common malware family name or variant';
+  }
+  checkReady();
+}
+
+// ── SOURCES ──
+function toggleSource(id) {
+  const el = document.getElementById('src-' + id);
+  if (sources.has(id)) {
+    sources.delete(id);
+    el.classList.remove('checked');
+  } else {
+    sources.add(id);
+    el.classList.add('checked');
+  }
+  checkReady();
+}
+
+// ── INPUT VALIDATION ──
+document.getElementById('queryInput').addEventListener('input', checkReady);
+
+function checkReady() {
+  const q = document.getElementById('queryInput').value.trim();
+  const hasQuery = q.length > 0;
+  const hasSources = sources.size > 0;
+  const hasGemini = cfg.gemini.length > 0;
+  document.getElementById('btnRun').disabled = !(hasQuery && hasSources && hasGemini);
+  if (!hasGemini) {
+    document.getElementById('btnRun').textContent = '⚙ Configure API Key First';
+  } else {
+    document.getElementById('btnRun').textContent = '▶ Weave YARA Rule';
+  }
+}
+
+// ── CONFIG MODAL ──
+function openConfig() {
+  document.getElementById('cfgGemini').value = cfg.gemini;
+  document.getElementById('cfgVT').value     = cfg.vt;
+  document.getElementById('cfgOTX').value    = cfg.otx;
+  document.getElementById('cfgModel').value  = cfg.model || 'gemini-1.5-flash';
+  document.getElementById('configModal').classList.add('open');
+}
+
+function closeConfig() {
+  document.getElementById('configModal').classList.remove('open');
+}
+
+function saveConfig() {
+  cfg.gemini = document.getElementById('cfgGemini').value.trim();
+  cfg.vt     = document.getElementById('cfgVT').value.trim();
+  cfg.otx    = document.getElementById('cfgOTX').value.trim();
+  cfg.model  = document.getElementById('cfgModel').value.trim() || 'gemini-1.5-flash';
+  try { localStorage.setItem('yw_cfg', JSON.stringify(cfg)); } catch(e) {}
+  closeConfig();
+  checkReady();
+}
+
+// ── PROGRESS ──
+function setStep(id, state) {
+  const el = document.getElementById('step-' + id);
+  el.className = 'progress-step ' + state;
+  const icons = { active: '◉', done: '✓', error: '✗', '': '○' };
+  el.querySelector('.step-icon').textContent = icons[state] || '○';
+}
+
+function resetSteps() {
+  ['query','enrich','generate','explain'].forEach(s => setStep(s, ''));
+}
+
+// ── THREAT INTEL QUERIES ──
+async function queryMalwareBazaar(query, isHash) {
+  const body = isHash
+    ? { query: 'get_info', hash: query }
+    : { query: 'get_signame', signature: query };
+  try {
+    const r = await fetch('https://mb-api.abuse.ch/api/v1/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: Object.entries(body).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&')
+    });
+    const d = await r.json();
+    return { source: 'MalwareBazaar', status: d.query_status, data: d };
+  } catch(e) {
+    return { source: 'MalwareBazaar', status: 'error', error: e.message };
+  }
+}
+
+async function queryURLhaus(query, isHash) {
+  const body = isHash
+    ? `hash=${encodeURIComponent(query)}`
+    : `host=${encodeURIComponent(query)}`;
+  try {
+    const r = await fetch('https://urlhaus-api.abuse.ch/v1/' + (isHash ? 'payload/' : 'host/'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    const d = await r.json();
+    return { source: 'URLhaus', status: d.query_status, data: d };
+  } catch(e) {
+    return { source: 'URLhaus', status: 'error', error: e.message };
+  }
+}
+
+async function queryThreatFox(query, isHash) {
+  const body = {
+    query: isHash ? 'search_hash' : 'search_ioc',
+    [isHash ? 'hash' : 'search_term']: query
+  };
+  try {
+    const r = await fetch('https://threatfox-api.abuse.ch/api/v1/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    return { source: 'ThreatFox', status: d.query_status, data: d };
+  } catch(e) {
+    return { source: 'ThreatFox', status: 'error', error: e.message };
+  }
+}
+
+async function queryVirusTotal(query, isHash) {
+  if (!cfg.vt) return { source: 'VirusTotal', status: 'no_key' };
+  const endpoint = isHash
+    ? `https://www.virustotal.com/api/v3/files/${query}`
+    : `https://www.virustotal.com/api/v3/search?query=${encodeURIComponent(query + ' type:file')}`;
+  try {
+    const r = await fetch(endpoint, { headers: { 'x-apikey': cfg.vt } });
+    if (!r.ok) return { source: 'VirusTotal', status: 'error', error: `HTTP ${r.status}` };
+    const d = await r.json();
+    return { source: 'VirusTotal', status: 'ok', data: d };
+  } catch(e) {
+    return { source: 'VirusTotal', status: 'error', error: e.message };
+  }
+}
+
+async function queryOTX(query, isHash) {
+  if (!cfg.otx) return { source: 'OTX', status: 'no_key' };
+  const section = isHash ? 'analysis' : 'general';
+  const itype   = isHash ? 'file' : 'hostname';
+  const url = `https://otx.alienvault.com/api/v1/indicators/${itype}/${encodeURIComponent(query)}/${section}`;
+  try {
+    const r = await fetch(url, { headers: { 'X-OTX-API-KEY': cfg.otx } });
+    if (!r.ok) return { source: 'OTX', status: 'error', error: `HTTP ${r.status}` };
+    const d = await r.json();
+    return { source: 'OTX', status: 'ok', data: d };
+  } catch(e) {
+    return { source: 'OTX', status: 'error', error: e.message };
+  }
+}
+
+// ── INTEL SUMMARIZER ──
+function summarizeIntel(results, query, isHash) {
+  let summary = { family: 'Unknown', tags: [], fileType: 'Unknown',
+    firstSeen: null, detections: null, urls: [], reporter: null,
+    otxPulses: 0, sourceHits: [] };
+
+  for (const r of results) {
+    if (r.status === 'ok' || r.status === 'hash_found' || r.status === 'is_available') {
+
+      if (r.source === 'MalwareBazaar' && r.data?.data?.length) {
+        const d = r.data.data[0];
+        summary.family    = d.signature || summary.family;
+        summary.fileType  = d.file_type || summary.fileType;
+        summary.firstSeen = d.first_seen || summary.firstSeen;
+        summary.reporter  = d.reporter || summary.reporter;
+        if (d.tags) summary.tags.push(...d.tags);
+        summary.sourceHits.push({ name: 'MalwareBazaar', status: 'hit' });
+      } else if (r.source === 'MalwareBazaar') {
+        summary.sourceHits.push({ name: 'MalwareBazaar', status: 'miss' });
+      }
+
+      if (r.source === 'URLhaus' && r.data?.urls) {
+        summary.urls = r.data.urls.slice(0, 3).map(u => u.url);
+        summary.sourceHits.push({ name: 'URLhaus', status: 'hit' });
+      } else if (r.source === 'URLhaus') {
+        summary.sourceHits.push({ name: 'URLhaus', status: 'miss' });
+      }
+
+      if (r.source === 'ThreatFox' && r.data?.data?.length) {
+        const d = r.data.data[0];
+        if (d.malware) summary.family = d.malware || summary.family;
+        if (d.tags) summary.tags.push(...d.tags);
+        summary.sourceHits.push({ name: 'ThreatFox', status: 'hit' });
+      } else if (r.source === 'ThreatFox') {
+        summary.sourceHits.push({ name: 'ThreatFox', status: 'miss' });
+      }
+
+      if (r.source === 'VirusTotal' && r.data?.data?.attributes) {
+        const a = r.data.data.attributes;
+        const stats = a.last_analysis_stats || {};
+        summary.detections = `${stats.malicious || 0}/${(stats.malicious||0)+(stats.undetected||0)} engines`;
+        const names = a.popular_threat_classification?.suggested_threat_label;
+        if (names) summary.family = names || summary.family;
+        summary.fileType = a.type_description || summary.fileType;
+        summary.sourceHits.push({ name: 'VirusTotal', status: 'hit' });
+      } else if (r.source === 'VirusTotal') {
+        summary.sourceHits.push({ name: 'VirusTotal', status: r.status === 'no_key' ? 'miss' : 'error' });
+      }
+
+      if (r.source === 'OTX' && r.data) {
+        summary.otxPulses = r.data.pulse_count || 0;
+        summary.sourceHits.push({ name: 'OTX', status: 'hit' });
+      } else if (r.source === 'OTX') {
+        summary.sourceHits.push({ name: 'OTX', status: r.status === 'no_key' ? 'miss' : 'error' });
+      }
+
+    } else if (r.status === 'error') {
+      summary.sourceHits.push({ name: r.source, status: 'error' });
+    } else {
+      summary.sourceHits.push({ name: r.source, status: 'miss' });
+    }
+  }
+
+  // Dedupe tags
+  summary.tags = [...new Set(summary.tags)];
+
+  // If no hits at all
+  if (summary.family === 'Unknown' && !isHash) {
+    summary.family = query; // treat family name as ground truth
+  }
+
+  return summary;
+}
+
+// ── GEMINI API ──
+async function callGemini(prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent?key=${cfg.gemini}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
+    })
+  });
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(`Gemini API error ${r.status}: ${err}`);
+  }
+  const d = await r.json();
+  return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+// ── MAIN ANALYSIS ──
+async function runAnalysis() {
+  const query   = document.getElementById('queryInput').value.trim();
+  const isHash  = mode === 'hash';
+
+  showError('');
+  setStatus('RUNNING');
+  document.getElementById('btnRun').disabled = true;
+  document.getElementById('progressWrap').classList.add('visible');
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('resultsArea').style.display = 'none';
+  resetSteps();
+
+  try {
+    // ── Step 1: Query sources ──
+    setStep('query', 'active');
+
+    const promises = [];
+    if (sources.has('malwarebazaar')) promises.push(queryMalwareBazaar(query, isHash));
+    if (sources.has('urlhaus'))       promises.push(queryURLhaus(query, isHash));
+    if (sources.has('threatfox'))     promises.push(queryThreatFox(query, isHash));
+    if (sources.has('virustotal'))    promises.push(queryVirusTotal(query, isHash));
+    if (sources.has('otx'))           promises.push(queryOTX(query, isHash));
+
+    const results = await Promise.all(promises);
+    setStep('query', 'done');
+
+    // ── Step 2: Enrich ──
+    setStep('enrich', 'active');
+    const intel = summarizeIntel(results, query, isHash);
+    setStep('enrich', 'done');
+
+    // ── Step 3: Generate YARA ──
+    setStep('generate', 'active');
+
+    const rawData = results.map(r => JSON.stringify(r, null, 2)).join('\n\n---\n\n');
+
+    const yaraPrompt = `You are a YARA rule expert and malware analyst with deep knowledge of threat intelligence.
+
+Given the following threat intelligence data about ${isHash ? 'SHA256 hash: ' + query : 'malware family: ' + query}:
+
+${rawData}
+
+Enriched summary:
+- Malware Family: ${intel.family}
+- File Type: ${intel.fileType}
+- First Seen: ${intel.firstSeen || 'Unknown'}
+- Tags: ${intel.tags.join(', ') || 'None'}
+- Detection Rate: ${intel.detections || 'Unknown'}
+- OTX Pulses: ${intel.otxPulses}
+- Related URLs: ${intel.urls.slice(0,2).join(', ') || 'None'}
+
+Write a production-quality YARA rule to detect this threat. The rule must:
+1. Have a descriptive rule name (snake_case, prefixed with detect_)
+2. Include rich metadata: description, author = "YaraWeave", date, hash (if available), family, severity, tlp
+3. Use realistic strings section with:
+   - At least 3-5 meaningful string patterns (hex patterns, ASCII strings, wide strings)
+   - Patterns derived from known malware behaviors for this family
+   - Mix of $ strings and $$ wide variants where applicable
+4. Have a meaningful condition that is not just "all of them" — use weighted scoring like (2 of ($str*)) and (1 of ($hex*))
+5. Follow YARA best practices
+
+Respond ONLY with the raw YARA rule. No explanation, no markdown fences, just the rule text starting with "rule detect_".`;
+
+    const yaraRule = await callGemini(yaraPrompt);
+    setStep('generate', 'done');
+
+    // ── Step 4: Explain ──
+    setStep('explain', 'active');
+
+    const explainPrompt = `You are a YARA analyst explaining a detection rule to a SOC analyst.
+
+Here is the YARA rule:
+${yaraRule}
+
+Context: This rule targets ${intel.family} malware.
+
+Provide a structured explanation with these exact sections:
+1. THREAT_CONTEXT: 2-3 sentences on what this malware does and why it matters operationally
+2. RULE_LOGIC: How the condition works and why this combination reduces false positives
+3. STRING_RATIONALE: For each string/hex pattern, one sentence on what behavior or artifact it captures
+4. DEPLOYMENT_NOTES: Where to deploy this (endpoint EDR, network sensors, sandbox), and known evasion risks
+5. CONFIDENCE: Rate detection confidence as LOW/MEDIUM/HIGH and brief justification
+
+Format each section as: SECTION_NAME: content
+Keep each section concise — 2-4 sentences max.`;
+
+    const explanation = await callGemini(explainPrompt);
+    setStep('explain', 'done');
+
+    // ── Render ──
+    renderResults(query, isHash, intel, results, yaraRule, explanation);
+    setStatus('COMPLETE');
+
+  } catch(err) {
+    resetSteps();
+    setStep('query', 'error');
+    showError('Analysis failed: ' + err.message);
+    setStatus('ERROR');
+    document.getElementById('emptyState').style.display = 'flex';
+  } finally {
+    document.getElementById('btnRun').disabled = false;
+    checkReady();
+  }
+}
+
+// ── RENDER ──
+function renderResults(query, isHash, intel, rawResults, yaraRule, explanation) {
+  const area = document.getElementById('resultsArea');
+  area.style.display = 'flex';
+
+  // Source badges
+  const srcBadges = intel.sourceHits.map(s => {
+    const cls = s.status === 'hit' ? 'hit' : s.status === 'error' ? 'error' : 'miss';
+    const icon = s.status === 'hit' ? '✓' : s.status === 'error' ? '✗' : '—';
+    return `<div class="src-badge ${cls}">${icon} ${s.name}</div>`;
+  }).join('');
+
+  // Intel grid
+  const severity = intel.tags.some(t => ['ransomware','loader','botnet','rat'].includes(t.toLowerCase()))
+    ? 'tag-danger' : 'tag-warn';
+
+  const intelGrid = `
+    <div class="intel-grid">
+      <div class="intel-cell">
+        <div class="intel-label">Family</div>
+        <div class="intel-val">${escHtml(intel.family)}</div>
+      </div>
+      <div class="intel-cell">
+        <div class="intel-label">File Type</div>
+        <div class="intel-val">${escHtml(intel.fileType)}</div>
+      </div>
+      <div class="intel-cell">
+        <div class="intel-label">Detections</div>
+        <div class="intel-val ${intel.detections ? 'tag-danger' : ''}">${escHtml(intel.detections || 'N/A')}</div>
+      </div>
+      <div class="intel-cell">
+        <div class="intel-label">First Seen</div>
+        <div class="intel-val">${escHtml(intel.firstSeen || 'Unknown')}</div>
+      </div>
+      <div class="intel-cell">
+        <div class="intel-label">OTX Pulses</div>
+        <div class="intel-val ${intel.otxPulses > 5 ? 'tag-danger' : ''}">${intel.otxPulses}</div>
+      </div>
+      <div class="intel-cell">
+        <div class="intel-label">Reporter</div>
+        <div class="intel-val">${escHtml(intel.reporter || 'Community')}</div>
+      </div>
+    </div>
+    ${intel.tags.length ? `<div class="intel-tags">${intel.tags.map(t =>
+      `<div class="tag ${['ransomware','loader','botnet','rat','stealer'].includes(t.toLowerCase()) ? 'danger' : 'warn'}">${escHtml(t)}</div>`
+    ).join('')}</div>` : ''}
+  `;
+
+  // Parse explanation
+  const sections = {};
+  const sectionKeys = ['THREAT_CONTEXT','RULE_LOGIC','STRING_RATIONALE','DEPLOYMENT_NOTES','CONFIDENCE'];
+  for (const key of sectionKeys) {
+    const match = explanation.match(new RegExp(`${key}:\\s*([\\s\\S]*?)(?=(?:${sectionKeys.join('|')}):|$)`));
+    sections[key] = match ? match[1].trim() : '';
+  }
+
+  const explHtml = sectionKeys.map(k => `
+    <div class="expl-condition">
+      <div class="expl-tag">${k.replace(/_/g,' ')}</div>
+      <div class="expl-text">${escHtml(sections[k] || '—')}</div>
+    </div>
+  `).join('');
+
+  area.innerHTML = `
+    <!-- Intel Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Threat Intelligence — ${escHtml(isHash ? query.slice(0,16)+'...' : query)}</div>
+        <div class="card-accent accent-amber"></div>
+      </div>
+      <div class="card-body">
+        <div class="source-results">${srcBadges}</div>
+        ${intelGrid}
+      </div>
+    </div>
+
+    <!-- YARA Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Generated YARA Rule</div>
+        <div class="card-accent accent-green"></div>
+      </div>
+      <div class="card-body">
+        <div class="yara-wrap">
+          <pre class="yara-code" id="yaraOutput">${highlightYara(escHtml(yaraRule.trim()))}</pre>
+          <button class="btn-copy" id="btnCopy" onclick="copyYara()">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Explanation Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Rule Explanation & Deployment Guidance</div>
+        <div class="card-accent accent-blue"></div>
+      </div>
+      <div class="card-body">
+        <div class="explanation-body">
+          ${explHtml}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── YARA SYNTAX HIGHLIGHT ──
+function highlightYara(code) {
+  return code
+    .replace(/\b(rule|meta|strings|condition|and|or|not|any|all|of|them|import|include|private|global|filesize|at|in|for|uint8|uint16|uint32|uint8be|uint16be|uint32be)\b/g,
+      '<span class="kw">$1</span>')
+    .replace(/"([^"]*)"/g, '<span class="str">"$1"</span>')
+    .replace(/\/\/[^\n]*/g, '<span class="cmt">$&</span>')
+    .replace(/\b(0x[0-9a-fA-F]+|\d+)\b/g, '<span class="num">$1</span>')
+    .replace(/(\$\w+)/g, '<span class="var">$1</span>');
+}
+
+// ── COPY ──
+function copyYara() {
+  const text = document.getElementById('yaraOutput').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('btnCopy');
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// ── UTILS ──
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  el.textContent = msg;
+  el.classList.toggle('visible', !!msg);
+}
+
+function setStatus(s) {
+  document.getElementById('statusLabel').textContent = s;
+}
+
+// Close modal on overlay click
+document.getElementById('configModal').addEventListener('click', function(e) {
+  if (e.target === this) closeConfig();
+});
+
+// Initial ready check
+checkReady();
+</script>
+</body>
+</html>
